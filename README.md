@@ -1,201 +1,200 @@
-# RAG Chatbot - Document Q&A System
+# 🧠 Offline RAG Chatbot – Document Q&A System
 
-An end-to-end Retrieval-Augmented Generation (RAG) chatbot that can answer questions from your own documents. Built with Python, LangChain, OpenAI, and ChromaDB.
+An end-to-end **offline Retrieval-Augmented Generation (RAG) chatbot** that allows you to ask questions from your own documents without using any paid APIs.
 
-## Features
+This project uses **FAISS for vector search**, **HuggingFace embeddings for semantic understanding**, and **Ollama for local LLM inference**.
 
-- Upload and process PDF and text documents
-- Intelligent document chunking for better retrieval
-- Vector database with embeddings for semantic search
-- RAG pipeline combining retrieval with LLM generation
-- Interactive CLI chat interface
-- Source attribution for answers
+---
 
-## Project Structure
+## 🚀 Features
 
-```
+- 📄 Upload and process PDF and text documents
+- ✂️ Intelligent document chunking for better retrieval
+- 🔍 Semantic search using FAISS vector database
+- 🧠 Offline embeddings using HuggingFace models
+- 🤖 Local LLM inference using Ollama (no cloud dependency)
+- 💬 Interactive CLI chatbot interface
+- 📚 Source attribution for answers
+- 💸 Zero API cost – fully local execution
+
+---
+
+## 🏗️ Project Structure
+
 .
-├── chat.py                    # Main chat interface
-├── document_processor.py      # Document loading and chunking
-├── vector_store.py           # Vector database management
-├── rag_pipeline.py           # RAG pipeline implementation
-├── requirements.txt          # Python dependencies
-├── .env.example             # Environment variables template
-├── data/                    # Directory for your documents
-│   ├── machine_learning_intro.txt
-│   └── python_best_practices.txt
-└── chroma_db/               # Vector database (auto-created)
-```
+├── chat.py # Main CLI chatbot interface
+├── document_processor.py # Document loading and chunking
+├── vector_store.py # FAISS vector database management
+├── rag_pipeline.py # RAG pipeline logic
+├── requirements.txt # Python dependencies
+├── .env.example # Environment template (optional)
+├── data/ # Your documents go here
+│ ├── sample.txt
+│ └── notes.pdf
+└── faiss_index/ # Auto-generated vector index
 
-## Setup Instructions
 
-### 1. Prerequisites
+---
 
-- Python 3.8 or higher
-- OpenAI API key
+## ⚙️ Setup Instructions
 
-### 2. Install Dependencies
+### ✅ 1. Prerequisites
+
+- Python 3.9+
+- 8GB+ RAM recommended
+- Ollama installed  
+  👉 https://ollama.com
+
+---
+
+### ✅ 2. Install Dependencies
+
+Activate virtual environment and install packages:
 
 ```bash
 pip install -r requirements.txt
-```
 
-### 3. Configure Environment
+✅ 3. Pull Local LLM Model
 
-Copy the example environment file:
-```bash
-cp .env.example .env
-```
+Download a lightweight local model:
 
-Edit the `.env` file and add your OpenAI API key:
-```
-OPENAI_API_KEY=your_actual_api_key_here
-```
+ollama pull tinyllama
+ollama run tinyllama
 
-### 4. Add Your Documents
+✅ 4. Add Your Documents
 
-Place your PDF or text files in the `data/` directory. The system supports:
-- `.pdf` files
-- `.txt` files
-- `.md` files
+Place your documents inside the data/ folder.
 
-Sample documents are already included for testing.
+Supported formats:
 
-## Usage
+.txt
 
-### Start the Chatbot
+.pdf
 
-```bash
+.md
+
+▶️ Run the Chatbot
 python chat.py
-```
 
-### First Run
 
-On the first run, the system will:
-1. Load documents from the `data/` directory
-2. Split documents into chunks
-3. Create embeddings using OpenAI's text-embedding model
-4. Build a vector database (ChromaDB)
-5. Display the chat interface
+On first run:
 
-### Subsequent Runs
+Documents are loaded
 
-The system will load the existing vector database, making startup much faster.
+Text is split into chunks
 
-### Chat Interface
+Embeddings are generated locally
 
-- Type your questions and press Enter
-- The bot will search your documents and provide answers
-- Type `quit`, `exit`, or `q` to end the conversation
-- Press Ctrl+C to exit at any time
+FAISS vector index is created
 
-### Example Questions
+Chat interface starts
 
-Try asking questions like:
-- "What is machine learning?"
-- "What are the three main types of machine learning?"
-- "What are Python naming conventions?"
-- "How should I organize my Python imports?"
-- "What is the machine learning workflow?"
+Subsequent runs load the existing index (fast startup).
 
-## How It Works
+💬 Example Usage
 
-### 1. Document Processing
-- Documents are loaded from the data directory
-- Text is split into chunks (default: 1000 characters with 200 overlap)
-- Chunks preserve context and meaning
+Ask questions like:
 
-### 2. Vector Database
-- Each chunk is converted to an embedding (vector representation)
-- Vectors are stored in ChromaDB
-- Enables semantic search based on meaning, not just keywords
+What is supervised learning?
 
-### 3. RAG Pipeline
-- When you ask a question, the system:
-  - Searches for relevant document chunks
-  - Passes those chunks as context to the LLM
-  - Generates an answer based on the retrieved context
+Summarize this document.
 
-### 4. Source Attribution
-- The system tracks which documents provided the context
-- Shows the number of sources used for each answer
+What are the main concepts discussed?
 
-## Configuration
+Explain key points from the PDF.
 
-You can modify parameters in the code:
+Exit anytime using:
 
-### Document Processing
-- `chunk_size`: Size of text chunks (default: 1000)
-- `chunk_overlap`: Overlap between chunks (default: 200)
+exit
+quit
+Ctrl + C
 
-### Retrieval
-- `k`: Number of chunks to retrieve (default: 4)
+🧩 How It Works
+📄 Document Processing
 
-### Generation
-- `model`: OpenAI model to use (default: gpt-3.5-turbo)
-- `temperature`: Response randomness (default: 0)
+Loads documents from data/
 
-## Troubleshooting
+Splits text into overlapping chunks
 
-### "No supported documents found"
-Make sure you have at least one PDF or text file in the `data/` directory.
+Preserves semantic meaning
 
-### "OPENAI_API_KEY not found"
-Ensure you've created the `.env` file with your API key.
+📊 Vector Store (FAISS)
 
-### Slow first run
-The first run is slower because it creates embeddings. Subsequent runs will be much faster.
+Converts text chunks into embeddings
 
-### Out of context error
-Try reducing the `k` parameter to retrieve fewer chunks, or adjust the chunk size.
+Stores vectors locally
 
-## Technical Details
+Performs fast similarity search
 
-### Technologies Used
-- **LangChain**: Framework for building LLM applications
-- **OpenAI**: GPT model and embeddings
-- **ChromaDB**: Vector database for similarity search
-- **PyPDF**: PDF parsing
-- **Python-dotenv**: Environment variable management
+🔁 RAG Pipeline
 
-### Architecture
-```
+User question received
+
+Relevant chunks retrieved from FAISS
+
+Context injected into prompt
+
+Local LLM generates answer
+
+Sources returned
+
+🧠 Local AI Stack
 User Question
     ↓
-Vector Similarity Search
+FAISS Similarity Search
     ↓
-Retrieve Relevant Chunks
+Relevant Chunks
     ↓
-Construct Prompt with Context
+Prompt Construction
     ↓
-Generate Answer with LLM
+Ollama Local LLM
     ↓
-Return Answer + Sources
-```
+Answer + Sources
 
-## Customization Ideas
+🛠️ Tech Stack
 
-- Add web scraping to load online documents
-- Implement conversation history for follow-up questions
-- Create a web UI with Streamlit or Flask
-- Add support for more document types (Word, Excel, etc.)
-- Implement hybrid search (keyword + semantic)
-- Add citation highlighting in responses
+Python
 
-## Cost Considerations
+LangChain
 
-- OpenAI API usage incurs costs
-- First run requires embeddings creation (charged per token)
-- Each question requires API calls for generation
-- Consider using local models for cost reduction
+FAISS
 
-## License
+HuggingFace Embeddings
 
-This project is open source and available for educational purposes.
+Ollama
 
-## Support
+PyPDF
 
-For issues or questions, check:
-- LangChain documentation: https://python.langchain.com/
-- OpenAI API documentation: https://platform.openai.com/docs/
-- ChromaDB documentation: https://docs.trychroma.com/
+NumPy
+
+🎯 Why This Project Matters
+
+✅ Demonstrates real-world RAG system design
+
+✅ Works completely offline
+
+✅ No dependency on paid APIs
+
+✅ Strong ML + Systems engineering project
+
+✅ Resume-ready production-style architecture
+
+💡 Future Improvements
+
+Web UI using Streamlit / React
+
+Multi-document summarization
+
+Chat history memory
+
+Hybrid search (BM25 + Vector)
+
+GPU acceleration
+
+Model switching support
+
+Document metadata visualization
+
+📜 License
+
+Open-source for educational and learning purposes.
