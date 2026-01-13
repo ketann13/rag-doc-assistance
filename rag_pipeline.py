@@ -16,6 +16,14 @@ MAX_CONTEXT_CHARS = 6000
 # Default retrieval reduced from 25-30 to 6-8 to prevent overload
 DEFAULT_RETRIEVAL_K = 7
 
+# Similarity filtering tuned for MiniLM + FAISS (cosine/L2). We convert
+# FAISS distances into a monotonic similarity score in [0,1] and drop
+# items that are too weak relative to the best match.
+MIN_ABS_SIMILARITY = 0.25
+
+# Cap how many chunks we allow from a single source to preserve diversity.
+MAX_CHUNKS_PER_SOURCE = 3
+
 
 # --------------------------------------------------
 # Utility: Simple regex-based question extractor
@@ -135,13 +143,124 @@ EXTRACTED QUESTIONS:
         return ChatPromptTemplate.from_template(template)
 
     # -------------------------------
+    # Retrieval Helpers
+    # -------------------------------
+    def _normalize_query(self, query: str) -> str:
+        """Normalize queries before embedding to improve semantic precision.
+
+        Lowercasing and whitespace collapsing makes intent-focused queries
+        (e.g., "list all questions", "summarize this document") embed more
+        consistently, reducing vector noise across uploads.
+        """
+        query = query.strip().lower()
+        # Collapse repeated whitespace
+        query = re.sub(r"\s+", " ", query)
+        return query
+
+    def _score_to_similarity(self, score: float) -> float:
+        """Convert FAISS distance to a comparable similarity score in [0,1].
+
+        FAISS returns smaller-is-better L2 distances for MiniLM embeddings.
+        We invert with a stable transform so we can sort descending and apply
+        intuitive thresholds without altering the underlying index behavior.
+        """
+        if score is None:
+            return 0.0
+        # 1 / (1 + d) is monotonic and keeps values in (0,1].
+        return 1.0 / (1.0 + float(score))
+
+    def _dedupe_and_limit(self, scored_docs, k: int):
+        """Deduplicate near-identical chunks and limit per source for diversity."""
+        seen_keys = set()
+        per_source = {}
+        kept = []
+
+        for doc, sim in scored_docs:
+            src = doc.metadata.get("source", "unknown")
+            page = doc.metadata.get("page") or doc.metadata.get("page_number")
+            # Use a short text signature to catch repeated chunks from the same page
+            text = doc.page_content or ""
+            signature = text[:120].strip().lower()
+            key = (src, page, signature)
+
+            if key in seen_keys:
+                continue
+
+            if per_source.get(src, 0) >= MAX_CHUNKS_PER_SOURCE:
+                continue
+
+            seen_keys.add(key)
+            per_source[src] = per_source.get(src, 0) + 1
+            kept.append((doc, sim))
+
+            if len(kept) >= k:
+                break
+
+        return kept
+
+    # -------------------------------
     # Retrieval
     # -------------------------------
     def retrieve_context(self, query: str, k: int = None) -> List[Document]:
-        """Retrieve relevant documents with safe default k value."""
+        """Retrieve high-quality context with filtering, rerank, and diversity.
+
+        Steps applied (each keeps retrieval stable across multiple PDFs):
+        - Normalize the query to cut embedding noise for intent-style asks.
+        - Over-fetch then score-filter to remove weak/noisy matches.
+        - Rerank by similarity (higher is better) and deduplicate repeated chunks.
+        - Limit per source to preserve document diversity.
+        """
         if k is None:
             k = DEFAULT_RETRIEVAL_K
-        return self.vector_store.similarity_search(query, k=k)
+
+        normalized_query = self._normalize_query(query)
+
+        # Over-fetch to allow filtering without starving the final set.
+        fetch_k = max(k * 2, k + 3)
+
+        try:
+            raw_results = self.vector_store.similarity_search_with_score(
+                normalized_query,
+                k=fetch_k,
+            )
+        except AttributeError:
+            # Fallback for stores without score support; keeps API stable.
+            raw_docs = self.vector_store.similarity_search(normalized_query, k=fetch_k)
+            raw_results = [(doc, None) for doc in raw_docs]
+
+        if not raw_results:
+            return []
+
+        # Convert to similarity (higher is better) and keep alongside docs.
+        scored = []
+        for doc, score in raw_results:
+            similarity = self._score_to_similarity(score)
+            # Store for observability; harmless to downstream consumers.
+            doc.metadata = {**doc.metadata, "similarity": round(similarity, 4)}
+            scored.append((doc, similarity))
+
+        # Score-based filtering: drop items far below the best hit and under
+        # an absolute floor to reduce unrelated chunks.
+        best_sim = max(sim for _, sim in scored)
+        dynamic_floor = max(MIN_ABS_SIMILARITY, best_sim - 0.25)
+        scored = [(doc, sim) for doc, sim in scored if sim >= dynamic_floor]
+
+        # Rerank high → low similarity for deterministic ordering.
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        # Deduplicate repeated chunks and cap per source for diversity.
+        scored = self._dedupe_and_limit(scored, k)
+
+        # If filtering became too strict, fall back to the top-k raw order.
+        if not scored:
+            scored = raw_results[:k]
+            scored = [(doc, self._score_to_similarity(score)) for doc, score in scored]
+
+        # Final deterministic sort and trim.
+        scored.sort(key=lambda x: x[1], reverse=True)
+        final_docs = [doc for doc, _ in scored[:k]]
+
+        return final_docs
 
     # -------------------------------
     # Generators
@@ -266,18 +385,6 @@ EXTRACTED QUESTIONS:
         
         context = self.retrieve_context(question, k)
 
-        # Balance chunks per document to avoid overloading from single source
-        MAX_PER_DOC = 6
-        filtered = []
-        doc_counter = {}
-
-        for doc in context:
-            src = doc.metadata.get("source", "unknown")
-            doc_counter[src] = doc_counter.get(src, 0) + 1
-
-            if doc_counter[src] <= MAX_PER_DOC:
-                filtered.append(doc)
-
         q = question.lower()
 
         # ----------------------
@@ -286,19 +393,19 @@ EXTRACTED QUESTIONS:
         # "List all questions" uses special batched processing to avoid crashes
         if "list" in q and "question" in q:
             mode = "extract"
-            answer = self.extract_questions_from_docs(filtered)
+            answer = self.extract_questions_from_docs(context)
 
         elif "summary" in q or "summarize" in q or "overview" in q:
             mode = "summary"
-            answer = self.generate_summary(filtered)
+            answer = self.generate_summary(context)
 
         else:
             mode = "qa"
-            answer = self.generate_response(question, filtered)
+            answer = self.generate_response(question, context)
 
         return {
             "mode": mode,
             "question": question,
             "answer": answer,
-            "sources": [doc.metadata for doc in filtered],
+            "sources": [doc.metadata for doc in context],
         }
