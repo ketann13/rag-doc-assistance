@@ -35,12 +35,12 @@ class VectorStore:
             allow_dangerous_deserialization=True
         )
 
-    def similarity_search(self, query: str, k: int = 4) -> List[Document]:
+    def similarity_search(self, query: str, k: int = 8) -> List[Document]:
         if self.vectorstore is None:
             self.load_vectorstore()
         return self.vectorstore.similarity_search(query, k=k)
 
-    def similarity_search_with_score(self, query: str, k: int = 4):
+    def similarity_search_with_score(self, query: str, k: int = 8):
         if self.vectorstore is None:
             self.load_vectorstore()
         return self.vectorstore.similarity_search_with_score(query, k=k)
