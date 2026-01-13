@@ -28,15 +28,14 @@ This project showcases how modern AI capabilities can be democratized using open
 
 ```
 .
-├── chat.py                    # Main chat interface
+├── app.py                     # Streamlit web interface
+├── chat.py                    # CLI chat interface
 ├── document_processor.py      # Document loading and chunking
 ├── vector_store.py           # FAISS vector database management
 ├── rag_pipeline.py           # RAG pipeline implementation
 ├── requirements.txt          # Python dependencies
-├── data/                    # Directory for your documents
-│   ├── machine_learning_intro.txt
-│   └── python_best_practices.txt
-└── faiss_index/             # FAISS index storage (auto-created)
+├── data/                     # Directory for your documents
+└── faiss_db/                 # FAISS index storage (auto-created)
     └── index.faiss
 ```
 
@@ -52,9 +51,9 @@ This project showcases how modern AI capabilities can be democratized using open
 
 Download and install Ollama from [https://ollama.ai](https://ollama.ai)
 
-After installation, pull the TinyLlama model (lightweight and fast):
+After installation, pull the Phi model (lightweight and fast):
 ```bash
-ollama pull tinyllama
+ollama pull phi
 ```
 
 You can also try other models based on your hardware:
@@ -67,7 +66,7 @@ ollama pull mistral
 ollama list
 ```
 
-### 3. Install Python Dependencies
+### Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -78,6 +77,7 @@ This will install:
 - `sentence-transformers` for HuggingFace embeddings
 - `faiss-cpu` for vector similarity search
 - `pypdf` for PDF processing
+- `streamlit` for the web interface
 - Additional supporting libraries
 
 ### 4. Add Your Documents
@@ -87,15 +87,30 @@ Place your PDF or text files in the `data/` directory. Supported formats:
 - `.txt` files
 - `.md` files
 
-Sample documents are already included for testing.
+**With Streamlit UI**: You can also upload documents directly through the web interface, which will automatically rebuild the vector database.
+
+**With CLI**: Place files in the `data/` directory before running `chat.py`.
 
 ## Usage
 
-### Start the Chatbot
+### Option 1: Streamlit Web Interface (Recommended)
+
+```bash
+streamlit run app.py
+```
+
+This launches an interactive web interface where you can:
+- Upload documents directly through the UI
+- Automatically rebuild the vector database
+- Chat with your documents in a user-friendly interface
+
+### Option 2: CLI Chat Interface
 
 ```bash
 python chat.py
 ```
+
+For command-line interaction with your documents.
 
 ### First Run
 
@@ -112,8 +127,16 @@ On the first run, the system will:
 
 The system loads the pre-built FAISS index, making startup nearly instant.
 
-### Chat Interface
+### Chat Interfaces
 
+#### Streamlit Web UI
+- Clean, intuitive web interface
+- Upload documents directly
+- Auto-rebuild vector database
+- Real-time chat interface
+- Source attribution with interactive display
+
+#### CLI Interface
 - Type your questions and press Enter
 - Ollama processes queries locally on your machine
 - The bot searches your documents and provides contextual answers
@@ -175,9 +198,9 @@ You can customize the system by modifying parameters in the code:
 - Higher values provide more context but may reduce answer focus
 
 ### LLM Generation
-- `model`: Ollama model to use (default: `tinyllama`)
+- `model`: Ollama model to use (default: `phi`)
 - `temperature`: Response creativity (0=deterministic, 1=creative, default: 0)
-- Other models: `llama2`, `mistral`, `phi`
+- Other models: `llama2`, `mistral`, `tinyllama`
 
 ## Troubleshooting
 
@@ -187,13 +210,13 @@ Ensure you have at least one PDF or text file in the `data/` directory.
 ### "Ollama connection error"
 - Check that Ollama is installed and running
 - Verify the model is pulled: `ollama list`
-- Try pulling the model again: `ollama pull tinyllama`
+- Try pulling the model again: `ollama pull phi`
 
 ### Slow first run
 The first run downloads the HuggingFace embedding model (~400MB) and creates the FAISS index. Subsequent runs load the cached model and index instantly.
 
 ### Out of memory errors
-- Use a smaller Ollama model: `tinyllama` instead of `llama2`
+- Use a smaller Ollama model: `phi` instead of `llama2`
 - Reduce the `k` parameter to retrieve fewer chunks
 - Close other applications to free up RAM
 
