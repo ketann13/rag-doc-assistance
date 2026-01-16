@@ -41,8 +41,8 @@ if st.sidebar.button("Save Documents"):
             vector_store = VectorStore()
             vector_store.create_vectorstore(chunks)
 
-            # Clear cache so new index loads
-            st.cache_resource.clear()
+            # Clear RAG pipeline cache only (not all resources)
+            st.session_state.pop('rag_pipeline', None)
 
         st.sidebar.success("Vector database rebuilt automatically!")
 
@@ -76,6 +76,7 @@ if st.button("Ask"):
 
         st.subheader("Answer")
         st.write(result["answer"])
+
 
         st.subheader("Sources")
         for idx, source in enumerate(result["sources"], 1):

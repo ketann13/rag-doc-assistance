@@ -178,15 +178,17 @@ EXTRACTED QUESTIONS:
         for doc, sim in scored_docs:
             src = doc.metadata.get("source", "unknown")
             page = doc.metadata.get("page") or doc.metadata.get("page_number")
+            
+            # Early exit if per-source limit reached
+            if per_source.get(src, 0) >= MAX_CHUNKS_PER_SOURCE:
+                continue
+            
             # Use a short text signature to catch repeated chunks from the same page
             text = doc.page_content or ""
-            signature = text[:120].strip().lower()
+            signature = text[:80].strip().lower()  # Reduced from 120 for faster hashing
             key = (src, page, signature)
 
             if key in seen_keys:
-                continue
-
-            if per_source.get(src, 0) >= MAX_CHUNKS_PER_SOURCE:
                 continue
 
             seen_keys.add(key)

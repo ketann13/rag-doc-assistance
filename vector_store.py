@@ -4,13 +4,23 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 
+# Global singleton to avoid reloading embeddings model multiple times
+_embeddings_cache = None
+
+def get_embeddings():
+    """Get cached embeddings model to avoid expensive reloading."""
+    global _embeddings_cache
+    if _embeddings_cache is None:
+        _embeddings_cache = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+    return _embeddings_cache
+
 
 class VectorStore:
     def __init__(self, persist_directory: str = "./faiss_db"):
         self.persist_directory = persist_directory
-        self.embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        self.embeddings = get_embeddings()
         self.vectorstore = None
 
     def create_vectorstore(self, chunks: List[Document]):
